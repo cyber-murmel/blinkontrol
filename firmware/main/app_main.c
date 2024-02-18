@@ -1,3 +1,14 @@
+/**
+ * @file app_main.c
+ * @author your name (you@domain.com)
+ * @brief 
+ * @version 0.1
+ * @date 2024-02-18
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -9,6 +20,7 @@
 #include "hal/adc.h"
 #include "hal/led.h"
 #include "utils.h"
+#include "color.h"
 
 #define POT_V_MIN_MV (30)
 #define POT_V_MAX_MV (830)
@@ -19,7 +31,12 @@
 #define LED_MAX_FREQ_HZ (10)
 #define LED_COUNTER_RES (1000)
 
-#define LED_COUNTER_REFILL (1000*1000*LED_COUNTER_RES/LED_TIMER_PERIOD_US/LED_MAX_FREQ_HZ/2)
+/**
+ * @brief value to refill the LED timer counter with
+ * 
+ * calculated so that at the highest count down speed (LED_COUNTER_RES) the led blinks with LED_MAX_FREQ_HZ
+ */
+#define LED_COUNTER_REFILL ((1000*1000*LED_COUNTER_RES)/LED_TIMER_PERIOD_US/LED_MAX_FREQ_HZ/2)
 
 static const char *TAG = "main";
 
@@ -65,9 +82,13 @@ void app_main(void)
 static void adc_timer_callback(void* arg)
 {
     uint32_t adc_mv = adc_read_mv();
+    int32_t hue; 
 
     adc_mv = CLAMP(POT_V_MIN_MV, adc_mv, POT_V_MAX_MV);
     led_timer_counter_speed = MAP(adc_mv, POT_V_MIN_MV, POT_V_MAX_MV, 0, LED_COUNTER_RES);
+    hue = MAP(adc_mv, POT_V_MIN_MV, POT_V_MAX_MV, 0, 256*6);
+
+    led_color_set(HUE2RED(hue)>>4, HUE2GREEN(hue)>>4, HUE2BLUE(hue)>>4);
 
     if (0 == led_timer_counter_speed) {
         led_power_set(LED_POWER_ON);

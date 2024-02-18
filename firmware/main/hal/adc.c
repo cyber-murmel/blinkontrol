@@ -1,3 +1,14 @@
+/**
+ * @file adc.c
+ * @author your name (you@domain.com)
+ * @brief 
+ * @version 0.1
+ * @date 2024-02-16
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "driver/adc.h"
 #include "driver/gpio.h"
 #include "esp_adc_cal.h"

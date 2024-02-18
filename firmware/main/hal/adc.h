@@ -1,3 +1,14 @@
+/**
+ * @file adc.h
+ * @author your name (you@domain.com)
+ * @brief 
+ * @version 0.1
+ * @date 2024-02-18
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #ifndef _ADC_H
 #define _ADC_H
 

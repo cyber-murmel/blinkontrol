@@ -1,3 +1,14 @@
+/**
+ * @file led.c
+ * @author your name (you@domain.com)
+ * @brief 
+ * @version 0.1
+ * @date 2024-02-18
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "led.h"
 
 #include "driver/gpio.h"
@@ -12,6 +23,13 @@
 static const char *TAG = "led";
 
 static led_power_t s_led_power = LED_POWER_OFF;
+static struct {
+    uint8_t r, g, b;
+} s_led_color = {
+    .r = 16,
+    .g = 16,
+    .b = 16,
+};
 
 #ifdef CONFIG_BLINK_LED_RMT
 
@@ -37,7 +55,10 @@ void led_power_set(led_power_t led_power) {
     s_led_power = led_power;
     switch (s_led_power) {
         case LED_POWER_ON: {
-            led_strip_set_pixel(led_strip, 0, 16, 16, 16);
+            led_strip_set_pixel(led_strip, 0,
+                s_led_color.r,
+                s_led_color.g,
+                s_led_color.b);
             led_strip_refresh(led_strip);
         } break;
         case LED_POWER_OFF: // deliberate fallthrough
@@ -46,6 +67,27 @@ void led_power_set(led_power_t led_power) {
         } break;
     }
 }
+
+void led_color_set(uint8_t r, uint8_t g, uint8_t b) {
+    s_led_color.r = r;
+    s_led_color.g = g;
+    s_led_color.b = b;
+    
+    switch (s_led_power) {
+        case LED_POWER_ON: {
+            led_strip_set_pixel(led_strip, 0,
+                s_led_color.r,
+                s_led_color.g,
+                s_led_color.b);
+            led_strip_refresh(led_strip);
+        } break;
+        case LED_POWER_OFF: // deliberate fallthrough
+        default: {
+            led_strip_clear(led_strip);
+        } break;
+    }
+}
+
 
 #elif CONFIG_BLINK_LED_GPIO
 
