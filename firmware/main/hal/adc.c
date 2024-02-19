@@ -9,6 +9,8 @@
  *
  */
 
+#include "hal/adc.h"
+
 #include "driver/adc.h"
 #include "driver/gpio.h"
 #include "esp_adc_cal.h"

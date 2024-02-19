@@ -9,14 +9,14 @@
  *
  */
 
-#include "led.h"
+#include "hal/led.h"
 
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "led_strip.h"
 #include "sdkconfig.h"
 
-#include "../color.h"
+#include "lib/color.h"
 
 /* Use project configuration menu (idf.py menuconfig) to choose the GPIO to blink */
 #define BLINK_GPIO CONFIG_BLINK_GPIO

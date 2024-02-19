@@ -17,10 +17,10 @@
 #include "led_strip.h"
 #include "sdkconfig.h"
 
-#include "color.h"
 #include "hal/adc.h"
 #include "hal/led.h"
-#include "utils.h"
+#include "lib/color.h"
+#include "lib/utils.h"
 
 #define POT_V_MIN_MV (30)
 #define POT_V_MAX_MV (830)

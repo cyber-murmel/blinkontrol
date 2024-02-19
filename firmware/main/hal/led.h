@@ -14,7 +14,7 @@
 
 #include <stdint.h>
 
-#include "../color.h"
+#include "lib/color.h"
 
 typedef enum {
     LED_POWER_OFF = 0,
