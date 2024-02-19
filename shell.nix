@@ -38,6 +38,7 @@ mkShell {
       rev = esp-idf_rev;
       sha256 = esp-idf_sha256;
     })
+    clang-tools
   ];
 }
 
