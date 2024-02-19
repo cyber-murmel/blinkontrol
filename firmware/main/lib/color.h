@@ -1,7 +1,7 @@
 /**
  * @file color.h
- * @author your name (you@domain.com)
- * @brief
+ * @author marble (contact@computer-in.love)
+ * @brief Interface definition of the color module
  * @version 0.1
  * @date 2024-02-18
  *

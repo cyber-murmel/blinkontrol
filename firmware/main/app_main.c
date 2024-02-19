@@ -1,6 +1,6 @@
 /**
  * @file app_main.c
- * @author your name (you@domain.com)
+ * @author marble (contact@computer-in.love)
  * @brief
  * @version 0.1
  * @date 2024-02-18

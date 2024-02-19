@@ -1,6 +1,6 @@
 /**
  * @file led.h
- * @author your name (you@domain.com)
+ * @author marble (contact@computer-in.love)
  * @brief Definition of the LED interface
  * @version 0.1
  * @date 2024-02-18
