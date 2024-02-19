@@ -25,7 +25,7 @@
 #define POT_V_MIN_MV (30)
 #define POT_V_MAX_MV (830)
 
-#define ADC_TIMER_PERIOS_US (10000)
+#define ADC_TIMER_PERIOD_US (10000)
 #define LED_TIMER_PERIOD_US (100)
 
 #define LED_MAX_FREQ_HZ (10)
@@ -69,7 +69,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_timer_create(&adc_timer_args, &adc_timer));
     ESP_ERROR_CHECK(esp_timer_create(&led_timer_args, &led_timer));
 
-    ESP_ERROR_CHECK(esp_timer_start_periodic(adc_timer, ADC_TIMER_PERIOS_US));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(adc_timer, ADC_TIMER_PERIOD_US));
     ESP_ERROR_CHECK(esp_timer_start_periodic(led_timer, LED_TIMER_PERIOD_US));
 
 
