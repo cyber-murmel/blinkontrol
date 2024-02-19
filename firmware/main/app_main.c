@@ -97,7 +97,7 @@ static void adc_timer_callback(void* arg)
     led_timer_counter_speed = MAP(adc_mv, POT_V_MIN_MV, POT_V_MAX_MV, 0, LED_COUNTER_RES);
     hue = MAP(adc_mv, POT_V_MIN_MV, POT_V_MAX_MV, 0, (((5 * HUE_STEPS) / 6) - 1));
 
-    color_t color = hsv2rgb(hue, 255, LED_BRIGHTNESS);
+    color_t color = hsb2rgb(hue, 255, LED_BRIGHTNESS);
 
     led_color_set(color);
 

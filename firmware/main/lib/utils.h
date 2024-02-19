@@ -34,11 +34,4 @@
  */
 #define MAP(VAL, INL, INH, OUTL, OUTH) (OUTL + (((OUTH - OUTL) * (VAL - INL)) / (INH - INL)))
 
-/**
- * @brief Floored division modulo
- *
- * https://en.wikipedia.org/wiki/Modulo#Variants_of_the_definition
- */
-#define FLOOR_DIV_MOD(a, n) (((a % n) + n) % n)
-
 #endif // _UTILS_H
