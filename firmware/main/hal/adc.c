@@ -5,8 +5,6 @@
  * @version 0.1
  * @date 2024-02-16
  *
- * @copyright Copyright (c) 2024
- *
  */
 
 #include "hal/adc.h"
