@@ -49,6 +49,10 @@ static volatile uint32_t led_timer_counter_speed = 0;
 static void adc_timer_callback(void* arg);
 static void led_timer_callback(void* arg);
 
+/**
+ * @brief Application main task
+ * 
+ */
 void app_main(void)
 {
 
@@ -82,8 +86,15 @@ void app_main(void)
     }
 }
 
+/**
+ * @brief ADC timer task
+ * 
+ * @param arg unused
+ */
 static void adc_timer_callback(void* arg)
 {
+    (void) arg; // unused
+
     uint32_t adc_mv = adc_read_mv();
     int32_t hue; 
 
@@ -100,8 +111,15 @@ static void adc_timer_callback(void* arg)
     }
 }
 
+/**
+ * @brief LED timer task
+ * 
+ * @param arg unused
+ */
 static void led_timer_callback(void* arg)
 {
+    (void) arg; // unused
+
     led_timer_counter -= led_timer_counter_speed;
 
     if (led_timer_counter <= 0) {

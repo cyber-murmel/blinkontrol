@@ -1,7 +1,7 @@
 /**
  * @file adc.c
- * @author your name (you@domain.com)
- * @brief 
+ * @author marble (contact@computer-in.love)
+ * @brief Implementation of the ADC interface
  * @version 0.1
  * @date 2024-02-16
  * 

@@ -1,7 +1,7 @@
 /**
  * @file adc.h
- * @author your name (you@domain.com)
- * @brief 
+ * @author marble (contact@computer-in.love)
+ * @brief Definition of the ADC interface
  * @version 0.1
  * @date 2024-02-18
  * 
@@ -14,7 +14,17 @@
 
 #include <stdint.h>
 
+/**
+ * @brief Initialize the ADC
+ * 
+ */
 void adc_init();
+
+/**
+ * @brief Read the ADC
+ * 
+ * @return uint32_t Voltage in mV
+ */
 uint32_t adc_read_mv();
 
 #endif // _ADC_H
