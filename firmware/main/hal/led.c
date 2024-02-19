@@ -16,6 +16,8 @@
 #include "led_strip.h"
 #include "sdkconfig.h"
 
+#include "../color.h"
+
 
 /* Use project configuration menu (idf.py menuconfig) to choose the GPIO to blink */
 #define BLINK_GPIO CONFIG_BLINK_GPIO
@@ -23,13 +25,7 @@
 static const char *TAG = "led";
 
 static led_power_t s_led_power = LED_POWER_OFF;
-static struct {
-    uint8_t r, g, b;
-} s_led_color = {
-    .r = 16,
-    .g = 16,
-    .b = 16,
-};
+static color_t s_led_color;
 
 #ifdef CONFIG_BLINK_LED_RMT
 
@@ -51,8 +47,7 @@ void led_init(void)
     led_strip_clear(led_strip);
 }
 
-void led_power_set(led_power_t led_power) {
-    s_led_power = led_power;
+static void led_update(void) {
     switch (s_led_power) {
         case LED_POWER_ON: {
             led_strip_set_pixel(led_strip, 0,
@@ -68,24 +63,14 @@ void led_power_set(led_power_t led_power) {
     }
 }
 
-void led_color_set(uint8_t r, uint8_t g, uint8_t b) {
-    s_led_color.r = r;
-    s_led_color.g = g;
-    s_led_color.b = b;
-    
-    switch (s_led_power) {
-        case LED_POWER_ON: {
-            led_strip_set_pixel(led_strip, 0,
-                s_led_color.r,
-                s_led_color.g,
-                s_led_color.b);
-            led_strip_refresh(led_strip);
-        } break;
-        case LED_POWER_OFF: // deliberate fallthrough
-        default: {
-            led_strip_clear(led_strip);
-        } break;
-    }
+void led_power_set(led_power_t led_power) {
+    s_led_power = led_power;
+    led_update();
+}
+
+void led_color_set(color_t color) {
+    s_led_color = color;
+    led_update();
 }
 
 
@@ -110,6 +95,10 @@ void led_power_set(led_power_t led_power) {
             gpio_set_level(BLINK_GPIO, 0);
         } break;
     }
+}
+
+void led_color_set(color_t color) {
+    // pass
 }
 
 #endif

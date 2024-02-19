@@ -31,6 +31,9 @@
 #define LED_MAX_FREQ_HZ (10)
 #define LED_COUNTER_RES (1000)
 
+#define LED_SATURATION (255)
+#define LED_BRIGHTNESS (16)
+
 /**
  * @brief value to refill the LED timer counter with
  * 
@@ -86,9 +89,11 @@ static void adc_timer_callback(void* arg)
 
     adc_mv = CLAMP(POT_V_MIN_MV, adc_mv, POT_V_MAX_MV);
     led_timer_counter_speed = MAP(adc_mv, POT_V_MIN_MV, POT_V_MAX_MV, 0, LED_COUNTER_RES);
-    hue = MAP(adc_mv, POT_V_MIN_MV, POT_V_MAX_MV, 0, 256*6);
+    hue = MAP(adc_mv, POT_V_MIN_MV, POT_V_MAX_MV, 0, (((5*HUE_STEPS)/6)-1));
 
-    led_color_set(HUE2RED(hue)>>4, HUE2GREEN(hue)>>4, HUE2BLUE(hue)>>4);
+    color_t color = hsv2rgb(hue, 255, LED_BRIGHTNESS);
+
+    led_color_set(color);
 
     if (0 == led_timer_counter_speed) {
         led_power_set(LED_POWER_ON);

@@ -14,6 +14,8 @@
 
 #include <stdint.h>
 
+#include "../color.h"
+
 typedef enum {
     LED_POWER_OFF = 0,
     LED_POWER_ON = 1,
@@ -21,7 +23,7 @@ typedef enum {
 
 void led_init(void);
 void led_power_set(led_power_t led_power);
-void led_color_set(uint8_t r, uint8_t g, uint8_t b);
 void led_toggle();
 
+void led_color_set(color_t color);
 #endif // _LED_H
