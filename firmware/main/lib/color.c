@@ -2,7 +2,6 @@
  * @file color.c
  * @author marble (contact@computer-in.love)
  * @brief Implementation of the color module
- * @version 0.1
  * @date 2024-02-19
  * 
  */

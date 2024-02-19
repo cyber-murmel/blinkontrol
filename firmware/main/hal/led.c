@@ -2,7 +2,6 @@
  * @file led.c
  * @author marble (contact@computer-in.love)
  * @brief Implementation of the LED interface
- * @version 0.1
  * @date 2024-02-18
  *
  */

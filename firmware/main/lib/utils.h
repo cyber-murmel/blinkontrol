@@ -2,7 +2,6 @@
  * @file utils.h
  * @author marble (contact@computer-in.love)
  * @brief Utilities
- * @version 0.1
  * @date 2024-02-18
  *
  */
