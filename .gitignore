@@ -68,3 +68,6 @@ managed_components
 # Clion IDE CMake build & config
 .idea/
 cmake-build-*/
+
+# nix-build
+result
