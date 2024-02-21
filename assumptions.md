@@ -6,3 +6,4 @@
   - ADC and LED task communicate via shared variables
   - the ADC task may call LED interface functions directly
 - the ADCs eFuses are burned correctly
+- usage of floats is not discouraged

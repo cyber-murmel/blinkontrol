@@ -25,7 +25,7 @@
 #define LED_COUNTER_RES (1000)
 
 #define LED_SATURATION (255)
-#define LED_BRIGHTNESS (16)
+#define LED_BRIGHTNESS (1.0 / 16)
 
 /**
  * @brief value to refill the LED timer counter with
@@ -33,8 +33,7 @@
  * calculated so that at the highest count down speed (LED_COUNTER_RES) the led blinks with
  * LED_MAX_FREQ_HZ
  */
-#define LED_COUNTER_REFILL                                                                         \
-    ((1000 * 1000 * LED_COUNTER_RES) / LED_TIMER_PERIOD_US / LED_MAX_FREQ_HZ / 2)
+#define LED_COUNTER_REFILL ((1000 * 1000 * LED_COUNTER_RES) / LED_TIMER_PERIOD_US / LED_MAX_FREQ_HZ / 2)
 
 static const char* TAG = "main";
 
@@ -53,10 +52,9 @@ void app_main(void)
     // esp_timer_handle_t adc_timer;
     esp_timer_handle_t led_timer;
     float adv_value;
-    int32_t hue;
+    float hue;
 
-    const esp_timer_create_args_t led_timer_args
-        = { .callback = &led_timer_callback, .name = "led_timer" };
+    const esp_timer_create_args_t led_timer_args = { .callback = &led_timer_callback, .name = "led_timer" };
 
     ESP_LOGI(TAG, "started");
 
@@ -73,8 +71,9 @@ void app_main(void)
     while (1) {
         adv_value = adc_get_value();
         led_timer_counter_speed = MAP(adv_value, 0.0, 1.0, 0, LED_COUNTER_RES);
-        hue = MAP(adv_value, 0.0, 1.0, 0, (((5 * HUE_STEPS) / 6) - 1));
-        led_color = hsb2rgb(hue, 255, LED_BRIGHTNESS);
+        // hue = MAP(adv_value, 0.0, 1.0, 0, (((5 * HUE_STEPS) / 6) - 1));
+        hue = (adv_value * 5) / 6;
+        led_color = hsb2rgb(hue, 1.0, LED_BRIGHTNESS);
 
         vTaskDelay(50 / portTICK_PERIOD_MS);
     }

@@ -9,6 +9,8 @@
 #ifndef _UTILS_H
 #define _UTILS_H
 
+#include <math.h>
+
 /**
  * @brief Return the lower number
  *
@@ -32,5 +34,11 @@
  *
  */
 #define MAP(VAL, INL, INH, OUTL, OUTH) (OUTL + (((OUTH - OUTL) * (VAL - INL)) / (INH - INL)))
+
+/**
+ * @brief Calculate floored division module of A for the divisor N
+ *
+ */
+#define FLOOR_DIV_MOD(A, N) (A - (N * floor(A / N)))
 
 #endif // _UTILS_H

@@ -19,12 +19,6 @@ typedef struct {
 } color_t;
 
 /**
- * @brief Number of hue steps
- *
- */
-#define HUE_STEPS (256 * 6)
-
-/**
  * @brief Number of steps in a color channel
  *
  * @details Each channel is defined by an 8-bit number
@@ -34,11 +28,11 @@ typedef struct {
 /**
  * @brief Turn hue, value and saturation to an RGB color
  *
- * @param hue [0 .. HUE_STEPS-1 ]
- * @param saturation [0 .. 255]
- * @param value [0 .. 255]
+ * @param hue [0.0 .. 1.0]
+ * @param saturation [0.0 .. 1.0]
+ * @param value [0.0 .. 1.0]
  * @return color_t
  */
-color_t hsb2rgb(uint16_t hue, uint8_t saturation, uint8_t brightness);
+color_t hsb2rgb(float hue, float saturation, float brightness);
 
 #endif // _COLOR_H
