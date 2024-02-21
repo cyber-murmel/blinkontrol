@@ -14,13 +14,12 @@
 #include "sdkconfig.h"
 #include <string.h>
 
-#define COUNT_OF(LIST)                                                                             \
-    ((sizeof(LIST) / sizeof(0 [LIST])) / ((size_t)(!(sizeof(LIST) % sizeof(0 [LIST])))))
+#define COUNT_OF(LIST) ((sizeof(LIST) / sizeof(0 [LIST])) / ((size_t)(!(sizeof(LIST) % sizeof(0 [LIST])))))
 
 #define ADC_READ_LEN (256)
 #define ADC_MAX_STORE_BUF_SIZE (1024)
 #define ADC_SAMPLE_FREQUENCY_HZ (40 * 1000)
-#define ADC_TASK_STACK_SIZE (2 * 1024)
+#define ADC_TASK_STACK_SIZE (3 * 1024)
 
 #define ADC_UNIT (ADC_UNIT_1)
 #define _ADC_UNIT_STR(unit) #unit
@@ -45,8 +44,7 @@
 /* use 1/5 of ADC_FILTER_TIME_US, as 97% of signal level will then be achieve within one
  * ADC_FILTER_TIME_US
  */
-#define ADC_IIR_ALPHA                                                                              \
-    (((float)ADC_SAMPLE_PERIOD_US) / (ADC_SAMPLE_PERIOD_US + ADC_FILTER_TIME_US / 5))
+#define ADC_IIR_ALPHA (((float)ADC_SAMPLE_PERIOD_US) / (ADC_SAMPLE_PERIOD_US + ADC_FILTER_TIME_US / 5))
 
 static adc_continuous_handle_t s_adc_continuous_handle = NULL;
 static TaskHandle_t s_task_handle;
@@ -69,8 +67,7 @@ static bool IRAM_ATTR s_conv_done_cb(
     return (mustYield == pdTRUE);
 }
 
-static void continuous_adc_init(
-    adc_channel_t* channel, uint8_t channel_num, adc_continuous_handle_t* out_handle)
+static void continuous_adc_init(adc_channel_t* channel, uint8_t channel_num, adc_continuous_handle_t* out_handle)
 {
     adc_continuous_handle_t handle = NULL;
 
@@ -140,8 +137,7 @@ static void adc_task(void* pvParameters)
                     /* Check the channel number validation, the data is invalid if the channel num
                      * exceed the maximum channel */
                     if (chan_num >= SOC_ADC_CHANNEL_NUM(ADC_UNIT)) {
-                        ESP_LOGW(TAG, "Invalid data [%s_%" PRIu32 "_%" PRIx32 "]", unit, chan_num,
-                            new_data);
+                        ESP_LOGW(TAG, "Invalid data [%s_%" PRIu32 "_%" PRIx32 "]", unit, chan_num, new_data);
                     }
 
                     /* Apply a simple IIR filter */
@@ -150,7 +146,6 @@ static void adc_task(void* pvParameters)
             } else if (ret == ESP_ERR_TIMEOUT) {
                 // We try to read `EXAMPLE_READ_LEN` until API returns timeout, which means there's
                 // no available data
-                ESP_LOGE(TAG, "no available data");
                 break;
             }
         }
