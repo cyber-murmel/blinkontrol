@@ -19,7 +19,7 @@
 
 #define ADC_READ_LEN (256)
 #define ADC_MAX_STORE_BUF_SIZE (1024)
-#define ADC_SAMPLE_FREQUENCY_HZ (2 * 1000)
+#define ADC_SAMPLE_FREQUENCY_HZ (40 * 1000)
 #define ADC_TASK_STACK_SIZE (2 * 1024)
 
 #define ADC_UNIT (ADC_UNIT_1)
@@ -40,15 +40,22 @@
 #define ADC_GET_DATA(p_data) ((p_data)->type2.data)
 #endif
 
-static adc_continuous_handle_t adc_continuous_handle = NULL;
-static adc_cali_handle_t adc_cali_handle = NULL;
-#if CONFIG_IDF_TARGET_ESP32
-static adc_channel_t channel[] = { ADC_CHANNEL_6 };
-#else
-static adc_channel_t channel[] = { ADC_CHANNEL_2 };
-#endif
+#define ADC_FILTER_TIME_US (10000)
+#define ADC_SAMPLE_PERIOD_US ((1000 * 1000) / ADC_SAMPLE_FREQUENCY_HZ)
+/* use 1/5 of ADC_FILTER_TIME_US, as 97% of signal level will then be achieve within one
+ * ADC_FILTER_TIME_US
+ */
+#define ADC_IIR_ALPHA                                                                              \
+    (((float)ADC_SAMPLE_PERIOD_US) / (ADC_SAMPLE_PERIOD_US + ADC_FILTER_TIME_US / 5))
+
+static adc_continuous_handle_t s_adc_continuous_handle = NULL;
 static TaskHandle_t s_task_handle;
-static uint32_t data;
+static uint32_t s_adc_data;
+#if CONFIG_IDF_TARGET_ESP32
+static adc_channel_t s_adc_channels[] = { ADC_CHANNEL_6 };
+#else
+static adc_channel_t s_adc_channels[] = { ADC_CHANNEL_2 };
+#endif
 
 static const char* TAG = "ADC";
 
@@ -85,7 +92,7 @@ static void continuous_adc_init(
     // dig_cfg.pattern_num = channel_num;
     for (int i = 0; i < channel_num; i++) {
         adc_pattern[i].atten = ADC_ATTEN;
-        adc_pattern[i].channel = channel[i] & 0x7;
+        adc_pattern[i].channel = s_adc_channels[i] & 0x7;
         adc_pattern[i].unit = ADC_UNIT;
         adc_pattern[i].bit_width = ADC_BIT_WIDTH;
 
@@ -104,9 +111,11 @@ static void adc_task(void* pvParameters)
     esp_err_t ret;
     uint32_t ret_num = 0;
     uint8_t result[ADC_READ_LEN] = { 0 };
-    memset(result, 0xcc, ADC_READ_LEN);
+    char unit[] = ADC_UNIT_STR(ADC_UNIT);
 
     (void)pvParameters; // unused
+
+    memset(result, 0xcc, ADC_READ_LEN);
 
     while (1) {
 
@@ -120,36 +129,28 @@ static void adc_task(void* pvParameters)
          */
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        char unit[] = ADC_UNIT_STR(ADC_UNIT);
-
         while (1) {
-            ret = adc_continuous_read(adc_continuous_handle, result, ADC_READ_LEN, &ret_num, 0);
+            ret = adc_continuous_read(s_adc_continuous_handle, result, ADC_READ_LEN, &ret_num, 0);
             if (ret == ESP_OK) {
-                // ESP_LOGI("TASK", "ret is %x, ret_num is %" PRIu32 " bytes", ret, ret_num);
                 for (int i = 0; i < ret_num; i += SOC_ADC_DIGI_RESULT_BYTES) {
                     adc_digi_output_data_t* p = (void*)&result[i];
                     uint32_t chan_num = ADC_GET_CHANNEL(p);
-                    data = ADC_GET_DATA(p);
+                    uint32_t new_data = ADC_GET_DATA(p);
+
                     /* Check the channel number validation, the data is invalid if the channel num
                      * exceed the maximum channel */
-                    if (chan_num < SOC_ADC_CHANNEL_NUM(ADC_UNIT)) {
-                        // ESP_LOGI(TAG, "Unit: %s, Channel: %" PRIu32 ", Value: %" PRIx32, unit,
-                        //     chan_num, data);
-                    } else {
-                        ESP_LOGW(
-                            TAG, "Invalid data [%s_%" PRIu32 "_%" PRIx32 "]", unit, chan_num, data);
+                    if (chan_num >= SOC_ADC_CHANNEL_NUM(ADC_UNIT)) {
+                        ESP_LOGW(TAG, "Invalid data [%s_%" PRIu32 "_%" PRIx32 "]", unit, chan_num,
+                            new_data);
                     }
+
+                    /* Apply a simple IIR filter */
+                    s_adc_data = (ADC_IIR_ALPHA * new_data) + ((1 - ADC_IIR_ALPHA) * s_adc_data);
                 }
-                /**
-                 * Because printing is slow, so every time you call `ulTaskNotifyTake`, it will
-                 * immediately return. To avoid a task watchdog timeout, add a delay here. When you
-                 * replace the way you process the data, usually you don't need this delay (as this
-                 * task will block for a while).
-                 */
-                vTaskDelay(1);
             } else if (ret == ESP_ERR_TIMEOUT) {
                 // We try to read `EXAMPLE_READ_LEN` until API returns timeout, which means there's
                 // no available data
+                ESP_LOGE(TAG, "no available data");
                 break;
             }
         }
@@ -162,31 +163,23 @@ void adc_init(void)
         .on_conv_done = s_conv_done_cb,
     };
 
-    continuous_adc_init(channel, COUNT_OF(channel), &adc_continuous_handle);
+    continuous_adc_init(s_adc_channels, COUNT_OF(s_adc_channels), &s_adc_continuous_handle);
 
-    ESP_ERROR_CHECK(adc_continuous_register_event_callbacks(adc_continuous_handle, &cbs, NULL));
+    ESP_ERROR_CHECK(adc_continuous_register_event_callbacks(s_adc_continuous_handle, &cbs, NULL));
+
+    ESP_LOGI(TAG, "IIR alpha: %f", ADC_IIR_ALPHA);
 }
 
 void adc_start(void)
 {
-    // s_task_handle = task_handle;
     xTaskCreate(adc_task, "ADC task", ADC_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY, &s_task_handle);
     configASSERT(s_task_handle);
 
-    ESP_ERROR_CHECK(adc_continuous_start(adc_continuous_handle));
-}
-
-uint32_t adc_get_data(void) { return data; }
-
-int adc_get_voltage_mV(void)
-{
-    int voltage;
-    ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, data, &voltage));
-    return voltage;
+    ESP_ERROR_CHECK(adc_continuous_start(s_adc_continuous_handle));
 }
 
 float adc_get_value(void)
 {
-    float value = ((float)data) / ADC_MAX_VALUE;
+    float value = ((float)s_adc_data) / ADC_MAX_VALUE;
     return value;
 }

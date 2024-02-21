@@ -9,10 +9,10 @@
 #ifndef _ADC_H
 #define _ADC_H
 
-#include <stdint.h>
 #include "esp_adc/adc_continuous.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <stdint.h>
 
 /**
  * @brief Initialize the ADC
@@ -20,7 +20,6 @@
  */
 void adc_init(void);
 void adc_start(void);
-uint32_t adc_get_data(void);
 float adc_get_value(void);
 
 #endif // _ADC_H
