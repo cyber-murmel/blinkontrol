@@ -3,7 +3,7 @@
  * @author marble (contact@computer-in.love)
  * @brief Implementation of the color module
  * @date 2024-02-19
- * 
+ *
  */
 
 #include "lib/color.h"
@@ -20,17 +20,18 @@ typedef enum {
 
 /**
  * @brief Calculate the intensity of a color channel for a give hue
- * 
+ *
  * @details Creates a linear fade, with red at hue = 0, green at hue = (HUE_STEPS / 3)
  *          and blue at hue = 2*(HUE_STEPS / 3)
- * 
- * @param hue 
- * @param color_channel 
- * @return uint8_t 
+ *
+ * @param hue
+ * @param color_channel
+ * @return uint8_t
  */
-static uint8_t value(uint16_t hue, color_channel_t color_channel) {
+static uint8_t value(uint16_t hue, color_channel_t color_channel)
+{
     int32_t value;
-    
+
     // split hue range into 6 slices, each with a linear function for a color channel
     static const uint8_t hue_slope = (((6 * INTENSITY_STEPS) / HUE_STEPS));
 
@@ -40,8 +41,8 @@ static uint8_t value(uint16_t hue, color_channel_t color_channel) {
 
     // this function creates two linear functions
     // one intersecting [0, 0] the other [2*(HUE_STEPS / 3), 0]
-    // both starting at [(HUE_STEPS / 3), 2*INTENSITY_STEPS], making x = (HUE_STEPS / 3) the mirror line
-    // this is the peak of the green channel
+    // both starting at [(HUE_STEPS / 3), 2*INTENSITY_STEPS], making x = (HUE_STEPS / 3) the mirror
+    // line this is the peak of the green channel
     value = (2 * INTENSITY_STEPS) - abs((hue_slope * hue) - (HUE_STEPS / 3));
 
     // limit the value to INTENSITY_STEPS
@@ -50,15 +51,14 @@ static uint8_t value(uint16_t hue, color_channel_t color_channel) {
     return value;
 }
 
-static uint8_t saturate(uint8_t value, uint8_t saturation) {
-    value = (value * saturation)/(INTENSITY_STEPS-1);
-    value += (INTENSITY_STEPS-1) - saturation;
+static uint8_t saturate(uint8_t value, uint8_t saturation)
+{
+    value = (value * saturation) / (INTENSITY_STEPS - 1);
+    value += (INTENSITY_STEPS - 1) - saturation;
     return value;
 }
 
-static uint8_t brighten(uint8_t value, uint8_t brightness) {
-    return (value * brightness) / 255;
-}
+static uint8_t brighten(uint8_t value, uint8_t brightness) { return (value * brightness) / 255; }
 
 color_t hsb2rgb(uint16_t hue, uint8_t saturation, uint8_t brightness)
 {

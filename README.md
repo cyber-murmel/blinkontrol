@@ -11,6 +11,6 @@ idf.py flash
 
 ## Code Formatting
 ```shell
-find firmware -type f -name '*.[ch]' -exec clang-format -i {} +
+find firmware/main -type f -name '*.[ch]' -exec clang-format -i {} +
 ```
 

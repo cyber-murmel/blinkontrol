@@ -20,16 +20,16 @@ typedef struct {
 
 /**
  * @brief Number of hue steps
- * 
+ *
  */
 #define HUE_STEPS (256 * 6)
 
 /**
  * @brief Number of steps in a color channel
- * 
+ *
  * @details Each channel is defined by an 8-bit number
  */
-#define INTENSITY_STEPS (1<<8)
+#define INTENSITY_STEPS (1 << 8)
 
 /**
  * @brief Turn hue, value and saturation to an RGB color

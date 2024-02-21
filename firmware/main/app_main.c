@@ -19,7 +19,7 @@
 #include "lib/color.h"
 #include "lib/utils.h"
 
-#define LED_TIMER_PERIOD_US (20 *1000)
+#define LED_TIMER_PERIOD_US (20 * 1000)
 
 #define LED_MAX_FREQ_HZ (10)
 #define LED_COUNTER_RES (1000)
