@@ -6,108 +6,187 @@
  *
  */
 
-#include "hal/adc.h"
+#include "adc.h"
 
-#include "driver/adc.h"
-#include "driver/gpio.h"
-#include "esp_adc_cal.h"
+#include "esp_adc/adc_cali_scheme.h"
+#include "esp_adc/adc_continuous.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include "sdkconfig.h"
+#include <string.h>
 
-#include <stdlib.h>
+#define COUNT_OF(LIST)                                                                             \
+    ((sizeof(LIST) / sizeof(0 [LIST])) / ((size_t)(!(sizeof(LIST) % sizeof(0 [LIST])))))
 
-#define DEFAULT_VREF (1100) // Use adc2_vref_to_gpio() to obtain a better estimate
-#define NO_OF_SAMPLES (64) // Multisampling
+#define ADC_READ_LEN (256)
+#define ADC_MAX_STORE_BUF_SIZE (1024)
+#define ADC_SAMPLE_FREQUENCY_HZ (2 * 1000)
+#define ADC_TASK_STACK_SIZE (2 * 1024)
 
-static esp_adc_cal_characteristics_t* adc_chars;
-#if CONFIG_IDF_TARGET_ESP32
-static const adc_channel_t channel = ADC_CHANNEL_2;
-static const adc_bits_width_t width = ADC_WIDTH_BIT_12;
-#elif CONFIG_IDF_TARGET_ESP32S2
-static const adc_channel_t channel = ADC_CHANNEL_2; // GPIO3 if ADC1, GPIO17 if ADC2
-static const adc_bits_width_t width = ADC_WIDTH_BIT_13;
-#endif
-static const adc_atten_t atten = ADC_ATTEN_DB_0;
-static const adc_unit_t unit = ADC_UNIT_1;
+#define ADC_UNIT (ADC_UNIT_1)
+#define _ADC_UNIT_STR(unit) #unit
+#define ADC_UNIT_STR(unit) _ADC_UNIT_STR(unit)
+#define ADC_CONV_MODE (ADC_CONV_SINGLE_UNIT_1)
+#define ADC_ATTEN (ADC_ATTEN_DB_0)
+#define ADC_BIT_WIDTH (SOC_ADC_DIGI_MAX_BITWIDTH)
+#define ADC_MAX_VALUE ((1 << SOC_ADC_DIGI_MAX_BITWIDTH) - 1)
 
-static const char* TAG = "adc";
-
-static void check_efuse(void)
-{
-#if CONFIG_IDF_TARGET_ESP32
-    // Check if TP is burned into eFuse
-    if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK) {
-        ESP_LOGI(TAG, "eFuse Two Point: Supported");
-    } else {
-        ESP_LOGI(TAG, "eFuse Two Point: NOT supported");
-    }
-    // Check Vref is burned into eFuse
-    if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_VREF) == ESP_OK) {
-        ESP_LOGI(TAG, "eFuse Vref: Supported");
-    } else {
-        ESP_LOGI(TAG, "eFuse Vref: NOT supported");
-    }
-#elif CONFIG_IDF_TARGET_ESP32S2
-    if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK) {
-        ESP_LOGI(TAG, "eFuse Two Point: Supported");
-    } else {
-        ESP_LOGI(TAG,
-            "Cannot retrieve eFuse Two Point calibration values. Default calibration values will "
-            "be used.");
-    }
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
+#define ADC_OUTPUT_TYPE ADC_DIGI_OUTPUT_FORMAT_TYPE1
+#define ADC_GET_CHANNEL(p_data) ((p_data)->type1.channel)
+#define ADC_GET_DATA(p_data) ((p_data)->type1.data)
 #else
-#error "This example is configured for ESP32/ESP32S2."
+#define ADC_OUTPUT_TYPE ADC_DIGI_OUTPUT_FORMAT_TYPE2
+#define ADC_GET_CHANNEL(p_data) ((p_data)->type2.channel)
+#define ADC_GET_DATA(p_data) ((p_data)->type2.data)
 #endif
+
+static adc_continuous_handle_t adc_continuous_handle = NULL;
+static adc_cali_handle_t adc_cali_handle = NULL;
+#if CONFIG_IDF_TARGET_ESP32
+static adc_channel_t channel[] = { ADC_CHANNEL_6 };
+#else
+static adc_channel_t channel[] = { ADC_CHANNEL_2 };
+#endif
+static TaskHandle_t s_task_handle;
+static uint32_t data;
+
+static const char* TAG = "ADC";
+
+static bool IRAM_ATTR s_conv_done_cb(
+    adc_continuous_handle_t handle, const adc_continuous_evt_data_t* edata, void* user_data)
+{
+    BaseType_t mustYield = pdFALSE;
+    // Notify that ADC continuous driver has done enough number of conversions
+    vTaskNotifyGiveFromISR(s_task_handle, &mustYield);
+
+    return (mustYield == pdTRUE);
 }
 
-static void print_char_val_type(esp_adc_cal_value_t val_type)
+static void continuous_adc_init(
+    adc_channel_t* channel, uint8_t channel_num, adc_continuous_handle_t* out_handle)
 {
-    if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
-        ESP_LOGI(TAG, "Characterized using Two Point Value");
-    } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
-        ESP_LOGI(TAG, "Characterized using eFuse Vref");
-    } else {
-        ESP_LOGI(TAG, "Characterized using Default Vref");
+    adc_continuous_handle_t handle = NULL;
+
+    adc_continuous_handle_cfg_t adc_config = {
+        .max_store_buf_size = ADC_MAX_STORE_BUF_SIZE,
+        .conv_frame_size = ADC_READ_LEN,
+    };
+    ESP_ERROR_CHECK(adc_continuous_new_handle(&adc_config, &handle));
+
+    adc_continuous_config_t dig_cfg = {
+        // .sample_freq_hz = 20 * 1000,
+        .sample_freq_hz = ADC_SAMPLE_FREQUENCY_HZ,
+        .conv_mode = ADC_CONV_MODE,
+        .format = ADC_OUTPUT_TYPE,
+        .pattern_num = channel_num,
+    };
+
+    adc_digi_pattern_config_t adc_pattern[SOC_ADC_PATT_LEN_MAX] = { 0 };
+    // dig_cfg.pattern_num = channel_num;
+    for (int i = 0; i < channel_num; i++) {
+        adc_pattern[i].atten = ADC_ATTEN;
+        adc_pattern[i].channel = channel[i] & 0x7;
+        adc_pattern[i].unit = ADC_UNIT;
+        adc_pattern[i].bit_width = ADC_BIT_WIDTH;
+
+        ESP_LOGI(TAG, "adc_pattern[%d].atten is :%" PRIx8, i, adc_pattern[i].atten);
+        ESP_LOGI(TAG, "adc_pattern[%d].channel is :%" PRIx8, i, adc_pattern[i].channel);
+        ESP_LOGI(TAG, "adc_pattern[%d].unit is :%" PRIx8, i, adc_pattern[i].unit);
     }
+    dig_cfg.adc_pattern = adc_pattern;
+    ESP_ERROR_CHECK(adc_continuous_config(handle, &dig_cfg));
+
+    *out_handle = handle;
 }
 
-void adc_init()
+static void adc_task(void* pvParameters)
 {
-    // Check if Two Point or Vref are burned into eFuse
-    check_efuse();
+    esp_err_t ret;
+    uint32_t ret_num = 0;
+    uint8_t result[ADC_READ_LEN] = { 0 };
+    memset(result, 0xcc, ADC_READ_LEN);
 
-    // Configure ADC
-    if (unit == ADC_UNIT_1) {
-        adc1_config_width(width);
-        adc1_config_channel_atten(channel, atten);
-    } else {
-        adc2_config_channel_atten((adc2_channel_t)channel, atten);
-    }
+    (void)pvParameters; // unused
 
-    // Characterize ADC
-    adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    esp_adc_cal_value_t val_type
-        = esp_adc_cal_characterize(unit, atten, width, DEFAULT_VREF, adc_chars);
-    print_char_val_type(val_type);
-}
+    while (1) {
 
-uint32_t adc_read_mv()
-{
-    uint32_t adc_reading = 0;
-    // Multisampling
-    for (int i = 0; i < NO_OF_SAMPLES; i++) {
-        if (unit == ADC_UNIT_1) {
-            adc_reading += adc1_get_raw((adc1_channel_t)channel);
-        } else {
-            int raw;
-            adc2_get_raw((adc2_channel_t)channel, width, &raw);
-            adc_reading += raw;
+        /**
+         * This is to show you the way to use the ADC continuous mode driver event callback.
+         * This `ulTaskNotifyTake` will block when the data processing in the task is fast.
+         * However in this example, the data processing (print) is slow, so you barely block here.
+         *
+         * Without using this event callback (to notify this task), you can still just call
+         * `adc_continuous_read()` here in a loop, with/without a certain block timeout.
+         */
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        char unit[] = ADC_UNIT_STR(ADC_UNIT);
+
+        while (1) {
+            ret = adc_continuous_read(adc_continuous_handle, result, ADC_READ_LEN, &ret_num, 0);
+            if (ret == ESP_OK) {
+                // ESP_LOGI("TASK", "ret is %x, ret_num is %" PRIu32 " bytes", ret, ret_num);
+                for (int i = 0; i < ret_num; i += SOC_ADC_DIGI_RESULT_BYTES) {
+                    adc_digi_output_data_t* p = (void*)&result[i];
+                    uint32_t chan_num = ADC_GET_CHANNEL(p);
+                    data = ADC_GET_DATA(p);
+                    /* Check the channel number validation, the data is invalid if the channel num
+                     * exceed the maximum channel */
+                    if (chan_num < SOC_ADC_CHANNEL_NUM(ADC_UNIT)) {
+                        // ESP_LOGI(TAG, "Unit: %s, Channel: %" PRIu32 ", Value: %" PRIx32, unit,
+                        //     chan_num, data);
+                    } else {
+                        ESP_LOGW(
+                            TAG, "Invalid data [%s_%" PRIu32 "_%" PRIx32 "]", unit, chan_num, data);
+                    }
+                }
+                /**
+                 * Because printing is slow, so every time you call `ulTaskNotifyTake`, it will
+                 * immediately return. To avoid a task watchdog timeout, add a delay here. When you
+                 * replace the way you process the data, usually you don't need this delay (as this
+                 * task will block for a while).
+                 */
+                vTaskDelay(1);
+            } else if (ret == ESP_ERR_TIMEOUT) {
+                // We try to read `EXAMPLE_READ_LEN` until API returns timeout, which means there's
+                // no available data
+                break;
+            }
         }
     }
-    adc_reading /= NO_OF_SAMPLES;
-    // Convert adc_reading to voltage in mV
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+}
 
+void adc_init(void)
+{
+    adc_continuous_evt_cbs_t cbs = {
+        .on_conv_done = s_conv_done_cb,
+    };
+
+    continuous_adc_init(channel, COUNT_OF(channel), &adc_continuous_handle);
+
+    ESP_ERROR_CHECK(adc_continuous_register_event_callbacks(adc_continuous_handle, &cbs, NULL));
+}
+
+void adc_start(void)
+{
+    // s_task_handle = task_handle;
+    xTaskCreate(adc_task, "ADC task", ADC_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY, &s_task_handle);
+    configASSERT(s_task_handle);
+
+    ESP_ERROR_CHECK(adc_continuous_start(adc_continuous_handle));
+}
+
+uint32_t adc_get_data(void) { return data; }
+
+int adc_get_voltage_mV(void)
+{
+    int voltage;
+    ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_handle, data, &voltage));
     return voltage;
+}
+
+float adc_get_value(void)
+{
+    float value = ((float)data) / ADC_MAX_VALUE;
+    return value;
 }

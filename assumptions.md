@@ -5,3 +5,4 @@
 - the ADC task is the only code writing to the control variables for the LED task
   - ADC and LED task communicate via shared variables
   - the ADC task may call LED interface functions directly
+- the ADCs eFuses are burned correctly

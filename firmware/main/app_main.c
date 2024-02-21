@@ -19,11 +19,7 @@
 #include "lib/color.h"
 #include "lib/utils.h"
 
-#define POT_V_MIN_MV (30)
-#define POT_V_MAX_MV (830)
-
-#define ADC_TIMER_PERIOD_US (10000)
-#define LED_TIMER_PERIOD_US (100)
+#define LED_TIMER_PERIOD_US (20 *1000)
 
 #define LED_MAX_FREQ_HZ (10)
 #define LED_COUNTER_RES (1000)
@@ -44,8 +40,8 @@ static const char* TAG = "main";
 
 static int32_t led_timer_counter = 0;
 static volatile uint32_t led_timer_counter_speed = 0;
+static volatile color_t led_color;
 
-static void adc_timer_callback(void* arg);
 static void led_timer_callback(void* arg);
 
 /**
@@ -54,12 +50,11 @@ static void led_timer_callback(void* arg);
  */
 void app_main(void)
 {
-
-    esp_timer_handle_t adc_timer;
+    // esp_timer_handle_t adc_timer;
     esp_timer_handle_t led_timer;
+    float adv_value;
+    int32_t hue;
 
-    const esp_timer_create_args_t adc_timer_args
-        = { .callback = &adc_timer_callback, .name = "adc_timer" };
     const esp_timer_create_args_t led_timer_args
         = { .callback = &led_timer_callback, .name = "led_timer" };
 
@@ -67,41 +62,21 @@ void app_main(void)
 
     led_init();
     adc_init();
+    adc_start();
 
-    ESP_ERROR_CHECK(esp_timer_create(&adc_timer_args, &adc_timer));
+    // ESP_ERROR_CHECK(esp_timer_create(&adc_timer_args, &adc_timer));
     ESP_ERROR_CHECK(esp_timer_create(&led_timer_args, &led_timer));
 
-    ESP_ERROR_CHECK(esp_timer_start_periodic(adc_timer, ADC_TIMER_PERIOD_US));
+    // ESP_ERROR_CHECK(esp_timer_start_periodic(adc_timer, ADC_TIMER_PERIOD_US));
     ESP_ERROR_CHECK(esp_timer_start_periodic(led_timer, LED_TIMER_PERIOD_US));
 
     while (1) {
-        // delay to yield the main task
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-}
+        adv_value = adc_get_value();
+        led_timer_counter_speed = MAP(adv_value, 0.0, 1.0, 0, LED_COUNTER_RES);
+        hue = MAP(adv_value, 0.0, 1.0, 0, (((5 * HUE_STEPS) / 6) - 1));
+        led_color = hsb2rgb(hue, 255, LED_BRIGHTNESS);
 
-/**
- * @brief ADC timer task
- *
- * @param arg unused
- */
-static void adc_timer_callback(void* arg)
-{
-    (void)arg; // unused
-
-    uint32_t adc_mv = adc_read_mv();
-    int32_t hue;
-
-    adc_mv = CLAMP(POT_V_MIN_MV, adc_mv, POT_V_MAX_MV);
-    led_timer_counter_speed = MAP(adc_mv, POT_V_MIN_MV, POT_V_MAX_MV, 0, LED_COUNTER_RES);
-    hue = MAP(adc_mv, POT_V_MIN_MV, POT_V_MAX_MV, 0, (((5 * HUE_STEPS) / 6) - 1));
-
-    color_t color = hsb2rgb(hue, 255, LED_BRIGHTNESS);
-
-    led_color_set(color);
-
-    if (0 == led_timer_counter_speed) {
-        led_power_set(LED_POWER_ON);
+        vTaskDelay(50 / portTICK_PERIOD_MS);
     }
 }
 
@@ -116,7 +91,11 @@ static void led_timer_callback(void* arg)
 
     led_timer_counter -= led_timer_counter_speed;
 
-    if (led_timer_counter <= 0) {
+    led_color_set(led_color);
+
+    if (0 == led_timer_counter_speed) {
+        led_power_set(LED_POWER_ON);
+    } else if (led_timer_counter <= 0) {
         led_toggle();
         led_timer_counter += LED_COUNTER_REFILL;
     }
